@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Linear Regression Presentation</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Alex Dragonetti" />
+    <meta name="date" content="2024-02-08" />
+    <script src="hw2_files/header-attrs/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Linear Regression Presentation
+]
+.subtitle[
+## Demonstration of Xaringan Package
+]
+.author[
+### Alex Dragonetti
+]
+.date[
+### 2024-02-08
+]
+
+---
+
+
+
+
+
+
+
+class:inverse4, top
+
+&lt;h1 align="center"&gt; Table of Contents&lt;/h1&gt;
+&lt;BR&gt;
+
+.pull-left[
+####- Data Overview
+####- Goals and Analysis Methods
+####- Findings
+####- Discussion
+]
+
+---
+
+&lt;h1 align = "center"&gt;Overview of Data&lt;/h1&gt;
+&lt;BR&gt;
+
+.pull-left[
+#### Basic Details
+
+&lt;li&gt; 3593 observations of 11 variables, one numeric dependent, 1 categorical independent, 9 numeric dependent
+&lt;li&gt; Data that measures flight delay times and potential causes
+&lt;li&gt; Source: &lt;i&gt;Applied Analytics through Case Studies Using SAS and R&lt;/i&gt;, Deepti Gupta by APress, ISBN - 978-1-4842-3525-6
+&lt;li&gt; Copy of data can be found at https://pengdsci.github.io/datasets/FlightDelay/Flight_delay-data.csv
+
+]
+
+.pull-right[
+##### Variables
+
+&lt;li&gt; Carrier - sole categorical variable
+&lt;li&gt; Airport_Distance - Distance between airports (effectively distance of flight) in miles 
+&lt;li&gt; Number of flights - Total number of flights in airport (not clear if this is departure or arrival airport)
+&lt;li&gt; Weather - 0-10 scale of weather conditions, where higher number is more 'extreme'
+&lt;li&gt; Support_Crew_Available - self-explanatory
+&lt;li&gt; Baggage_Loading_time - self-explanatory
+&lt;li&gt; Late_Arrival_o - time in minutes for late arriving aircraft
+&lt;li&gt; Cleaning_o - time in minutes for aircraft cleaning
+&lt;li&gt; Fueling_o - time in minutes for aircraft fueling
+&lt;li&gt; Security_o - time in minutes for security checks
+&lt;li&gt; Arr_Delay - time in minutes for delay of aircraft. 
+
+]
+
+
+---
+
+&lt;h1 align="center"&gt; Goals and Methodology&lt;/h1&gt;
+&lt;br&gt;
+
+.pull-left[
+#### Goals  
+
+&lt;li&gt; Primary: Create a Linear Regression Model to predict the delay time (in minutes) of a flight
+&lt;li&gt; Secondary: See which variables have the greatest impact on delay to give airports an actionable target.
+
+#### Preparing the Data
+&lt;li&gt; Check for missing values with is.na returns no missing values
+&lt;li&gt; Rename variables using CamelCase for ease of typing (eg, "Arr_Delay" becomes ArrDelay)
+&lt;li&gt; Creation of preliminary models to identify variables of interest and eliminate variables that are unnecessary
+]
+
+.pull-right[
+#### Method
+
+We will use a simple linear regression to analyze the data. Linear regression takes the form of:
+
+$$
+\hat{Y} = \beta_0+\beta_1x_1+\cdots+\beta_kx_k
+$$
+Where `\(\hat{Y}\)` is the predicted value of the dependent variable, `\(\beta_0\)` is the intercept (the value of Y when all independent variables equal 0), `\(x_1\)` through `\(x_k\)` is the value of each independent variable, and  `\(\beta_0\)` through `\(\beta_k\)` are the coefficients for each `\(x\)` variable.
+
+We will create a model with a 'training' data set, which will use 80% of the observations, and test it against the remaining 20% of observations.
+]
+---
+class: inverse center middle
+
+# Analysis and Results
+
+
+
+---
+&lt;h1 align="center"&gt; Splitting and Training the Data &lt;/h1&gt;
+&lt;br&gt;
+
+
+```r
+set.seed(251)
+row.number &lt;- sample(1:nrow(df), 0.8*nrow(df))
+train = df[row.number,]
+test = df[-row.number,]
+
+model1&lt;-lm(ArrDelay~., data=train)
+```
+From our initial model, we can see that only a few variables appear to be significant. We will continue with a reduced model, only using the variables that appear to have significant effect on ArrDelay.
+
+
+```r
+model2&lt;-lm(ArrDelay~AirportDistance + NumberOfFlights + Weather + SupportCrewAvailable + BaggageLoadingTime + LateArrival , data = df)
+```
+
+
+
+---
+&lt;h1 align="center"&gt; The "Champion" Model &lt;/h1&gt;
+&lt;br&gt;
+
+
+```
+# A tibble: 7 × 5
+  term                   estimate std.error statistic   p.value
+  &lt;chr&gt;                     &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;
+1 (Intercept)          -577.       7.27        -79.3  0        
+2 AirportDistance         0.174    0.0135       12.8  6.45e- 37
+3 NumberOfFlights         0.00443  0.000108     40.9  4.21e-300
+4 Weather                 4.46     0.454         9.83 1.67e- 22
+5 SupportCrewAvailable   -0.0489   0.00531      -9.21 5.47e- 20
+6 BaggageLoadingTime     13.5      0.438        30.8  1.63e-184
+7 LateArrival             6.90     0.333        20.7  2.91e- 90
+```
+
+The above variables were shown to have the most significant effect on ArrDelay. This model will now be 'tested' on the previously sequestered data to see how accurately it can predict ArrDelay.
+
+---
+&lt;h1 align="center"&gt; Testing The Model &lt;/h1&gt;
+&lt;br&gt;
+
+
+```r
+pred &lt;- predict(model2, newdata = test)
+results&lt;-test
+results$pred&lt;-pred
+results$resid = results$ArrDelay-results$pred
+results$resid2 = (results$resid)^2
+results$st= (results$ArrDelay- mean(results$ArrDelay))^2
+
+SSE=sum(results$resid2)
+SST=sum(results$st)
+
+R2=1-(SSE/SST)
+R2
+```
+
+```
+[1] 0.8188571
+```
+
+The `\(R^2\)` value is the percent of total variation in the `\(Y\)` variable explained by our regression model. Our model was able to achieve an `\(R^2\)` value of 0.819, meaning it accounts for nearly 82% of the variance within the data.
+
+The graphs on the following pages show (1) a comparison of Predicted vs Actual Delay time, which shows a very strong correlation and (2) the error at each prediction, showing that this model does not seem to over or under-predict consistently.
+
+---
+
+
+&lt;img src="hw2_files/figure-html/unnamed-chunk-6-1.png" width="600px" style="display: block; margin: auto;" /&gt;
+---
+&lt;img src="hw2_files/figure-html/unnamed-chunk-7-1.png" width="600px" style="display: block; margin: auto;" /&gt;
+
+
+---
+&lt;h1 align="center"&gt; Discussion&lt;/h1&gt;
+&lt;br&gt;&lt;br&gt;
+
+From our results, we are confident that Number of Flights, Distance, Weather, Support Staff, Arrival Delay, and Baggage Loading Time have a strong relationship with a flight delay. Carrier did not appear to have a significant impact, so recommendations can be generalized to all carriers at this time. Our recommendations are split into two categories: Projection Methods and Systemic Improvements
+### Projection Methods
+Understanding the impact that Number of Flights, Airport Distance, and to an extent, available staff and weather, can help create a more realistic ETA, available to a passenger before they even reach the airport. Obviously, while they can be forecast with weather reports and staffing information, weather and available staff may change, so they should not be as heavily relied on as the number of flights and airport distance. 
+
+---
+&lt;h1 align="center"&gt; Discussion, Part 2&lt;/h1&gt;
+&lt;br&gt;&lt;br&gt;
+### Systemic Improvements
+Having established above which variables impact the presence of a long delay more, an airport or carrier may want to focus on improving those above others. For example, bagging loading time was considered a significant variable by most models. Average baggage loading time was about the same across all carriers. In the event of infrastructure improvement with the purpose of reducing delays, one could prioritize that over a variable that did not have as strong of an impact, like fueling.
+### Considerations for Future Study
+For future analysis, we recommend recording all airports involved in a flight, if feasible, to gauge impact. There is plenty of potential analysis to be done with the airport a plane is arriving from, departing from, and heading towards. While this information will create more computational demand, we believe that it is worth investigating.
+Crucially, no one involved in this study is familiar with research related to air travel, so any actions should be run by an expert before implementation.
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"slideNumberFormat": "%current%",
+"highlightStyle": "github",
+"highlightLines": true,
+"ratio": "16:9",
+"countIncrementalSlides": true
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
