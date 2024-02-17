@@ -1,0 +1,128 @@
+---
+title: "Week 4"
+author: "Alex Dragonetti"
+date: "2-17-2024"
+output:
+  html_document: 
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    toc_collapsed: yes
+    code_folding: hide
+    code_download: yes
+    smooth_scroll: true
+    theme: lumen
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+if (!require("tidyverse")) {
+   install.packages("tidyverse")
+   library(tidyverse)
+}
+if (!require("dplyr")) {
+   install.packages("dplyr")
+   library(dplyr)
+}
+if (!require("knitr")) {
+   install.packages("knitr")
+   library(knitr)
+}
+if (!require("plotly")) {
+   install.packages("plotly")
+   library(plotly)
+}
+if (!require("gapminder")) {
+   install.packages("gapminder")
+   library(gapminder)
+}
+if (!require("colourpicker")) {
+    install.packages("colourpicker")              
+    library("colourpicker")
+}
+if (!require("gganimate")) {
+    install.packages("gganimate")              
+    library("gganimate")
+}
+
+knitr::opts_chunk$set(echo = TRUE,       
+                      warning = FALSE,   
+                      result = TRUE,   
+                      message = FALSE,
+                      comment = NA)
+
+
+```
+
+
+# Preparing the data
+
+For this analysis, we have been instructed to eliminate all observations with missing values. We have also been instructed to reduce our data set to only Gentoo and Adelie Penguins, from Biscsoe and Torgensen islands, with a body mass between 3500 and 5000 g. We have also been instructed to create a variable called `BMI`, which is equal to body mass divided by 4000.
+
+Below is our process for preparing the code:
+```{r}
+
+df<-read.csv("https://pengdsci.github.io/STA553VIZ/w03/w03-penguins.csv")
+
+#eliminate missing obs
+penguins.reduced<-na.omit(df)
+
+pen.reduced<-penguins.reduced%>%
+  filter(body_mass_g<5000, body_mass_g>3500)%>%filter(species=='Gentoo'| species=='Adelie')%>%filter(island=='Torgersen'|island=='Biscoe')
+
+pen.reduced$BMI=pen.reduced$body_mass_g/4000
+
+#R defaulted to the MASS function of select for me, so I had to specify dplyr for it to cooperate
+df.final<-pen.reduced
+  df.final <-  dplyr::select(df.final, c(-'X', -'sex', -'year', -'body_mass_g'))
+ 
+#write.csv(df.final, "C:\\Users\\Alex\\Documents\\R\\Grad\\553\\wk4.csv")
+
+```
+
+A copy of this data can be found at "https://raw.githubusercontent.com/AlexDragonetti/STA553/main/hw4/wk4.csv"
+
+
+# Visualizing the Data
+
+We have been asked to create a scatter plot of Bill_length_mm and Flipper_length_mm. We will use different colors to indicate the species of penguins and make point size is proportional to the body mass index (BMI). We will assist our visualization by including the regression for both species of penguin.
+
+The below code prepares data for our visualization:
+
+```{r}
+BillLength<-df.final$bill_length_mm
+FlipperLength<-df.final$flipper_length_mm
+BMI<-df.final$BMI
+Species<-df.final$species
+Adelie<-which(Species=="Adelie")
+Gentoo<-which(Species=="Gentoo")
+
+adelie.df<-subset(df.final, species=="Adelie")
+gentoo.df<-subset(df.final, species=="Gentoo")
+
+```
+
+The below is our code for the graph itself:
+
+```{r}
+
+plot(BillLength, FlipperLength, main = "Bill Depth vs Flipper Length", sub="Includes regression line for each species, point size proportional to BMI", cex.sub=.6,
+     xlab = "Bill Length (mm)", 
+     ylab = "Flipper Length (mm)", type = "n", cex=1.5)
+points(BillLength[Adelie], FlipperLength[Adelie],
+       pch=16, col="cornflowerblue", cex=BMI[Adelie])
+points(BillLength[Gentoo], FlipperLength[Gentoo],
+       pch=15, col="lightsalmon1", cex=BMI[Gentoo])
+abline(lm(flipper_length_mm ~ bill_length_mm, adelie.df), col="cornflowerblue")
+abline(lm(flipper_length_mm ~ bill_length_mm, gentoo.df), col="lightsalmon")
+legend("bottomright", title = "Penguin Species", cex=.9, pt.cex=1, bty = "n",
+       c("Adelie", "Gentoo"),
+       col=c("cornflowerblue", "lightsalmon1"),
+       pch = c(16, 15))
+
+```
+
+From our graph, we can see that Gentoo penguins are simply bigger, and we would expect bigger penguins to have larger bills and flippers. Interestingly, the regression line shows a higher pitch for Adelie penguins than Gentoo. This means that - based on our data - the relationship between bill and flipper length is stronger for Adelie penguins than Gentoo penguins. 
+
+It should be noted that the regression lines were derived from a limited selection of penguins. We based our analysis of data collected 2 of 3 islands and did not consider penguins above or below certain weight thresholds. This means that our results may not be generalizable, and should instead be treated as initial findings. For further study, we recommend seeing if this pattern holds with penguins from Dream island.
