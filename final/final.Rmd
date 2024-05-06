@@ -1,0 +1,400 @@
+---
+title: "Smoking Health Outcomes Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: spacelab
+# available themes include: default, cerulean, journal, flatly, darkly, 
+#                           readable, spacelab, united, cosmo, lumen, 
+#                           paper, sandstone, simplex, yeti.
+orientation: columns
+vertical_layout: fill
+runtime: shiny
+---
+  
+  <style type="text/css">
+  /* Get a fancy font from Google Fonts */
+  @import url('https://fonts.googleapis.com/css2?family=Yusei+Magic&display=swap');
+
+body {
+  background-color: lightgray;
+  color: darkgreen; /* text color */
+    text-align: left;
+}
+
+.navbar {
+  position: fixed;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Make text visible on inputs */
+  .shiny-input-container {
+    color: purple;
+  }
+
+.navbg {
+  background-color: blue;
+  color: white;
+}
+
+</style>                    
+  
+  \
+
+```{r setup, include=FALSE}
+if (!require("flexdashboard")) {
+  install.packages("flexdashboard")
+  library(flexdashboard)
+}
+if (!require("shiny")) {
+  install.packages("shiny")
+  library(shiny)
+}
+if (!require("plotly")) {
+  install.packages("plotly")
+  library(plotly)
+}
+if (!require("ggplot2")) {
+  install.packages("ggplot2")
+  library(ggplot2)
+}
+if (!require("tidyverse")) {
+  install.packages("tidyverse")
+  library(tidyverse)
+}
+```
+
+
+```{r data}
+
+
+dfdl<-read.csv("https://raw.githubusercontent.com/AlexDragonetti/STA553/main/final/smk.csv")
+df<-na.omit(dfdl)
+colnames(df)[7]<-"cholesterol"
+
+#Create separate variables for systolic and diastolic blood pressures (BP is currently in fraction format). Each is a usable variable to study on their own.
+
+bp_split <- strsplit(df$blood_pressure, "/")
+
+
+df$systolic_bp <- as.numeric(sapply(bp_split, "[[", 1))
+df$diastolic_bp <- as.numeric(sapply(bp_split, "[[", 2))
+
+x.names = names(df)[-c(2,3,5)]
+y.names =names(df)[-c(2,3,5)]
+```
+
+
+Column {.sidebar .navbg data-width=200}
+-------------------------------------------------------------------
+  
+  <br><br>
+  
+```{r}
+radioButtons(inputId = "current_smoker",
+             label = "Current Smoker?",
+             choices = c("yes", "no", "all"),
+             inline=TRUE,
+             selected = "all"
+)
+br()
+radioButtons(inputId = "sex", 
+             label = "Sex",
+             choices = c("female", "male", "all"), 
+             inline = TRUE,
+             selected = "all")
+```
+
+<hr>
+  
+```{r}
+selectInput(inputId = "Y",
+            label = "Response Variable: Y",
+            choices = y.names,
+            selected = y.names[5])
+#Set to y=systolic bp
+
+selectInput(inputId = "X",
+            label =  "Predictor Variable: X",
+            choices = x.names,
+            selected = x.names[4])
+#Set to x=Cholesterol
+
+```
+
+
+\
+
+<hr>
+ <p style="font-family:Courier; color:Purple; font-size: 20px;"><center>
+  <font size =2> 
+  <font color="green">Dashboard by Alex Dragonetti
+  <br>
+  <br>Data from Md Raihan Kahn, can be found on Kaggle by clicking <a href="https://www.kaggle.com/datasets/jaceprater/smokers-health-data">here. </font></a> </font></center></p>
+
+
+-->
+
+```{r}
+#filtering function - makes working data match input variables for all visualizations
+  workDat <- function() {
+
+    if (input$current_smoker == "yes") {
+      workingData <- df[df$current_smoker == "yes", ]
+    } else if (input$current_smoker == "no") {
+      workingData <- df[df$current_smoker == "no", ]
+    } else {
+      workingData <- df
+    }
+    
+    if (input$sex == "male") {
+      workingData2 <- workingData[workingData$sex == "male", ]
+    } else if (input$sex == "female") {
+      workingData2 <- workingData[workingData$sex == "female", ]
+    } else {
+      workingData2 <- workingData
+    }
+    
+    # Return the final filtered data
+    return(workingData2)
+  }
+
+```
+
+
+Column {data-width=500  .tabset .tabset-pills} 
+-------------------------------------------------------------------
+
+
+### **Scatterplot** 
+
+```{r}
+renderPlotly({
+  hist(workDat()[[input$X]]) 
+  
+  p <- plot_ly(data = workDat(),
+               x = ~workDat()[[input$X]], 
+               y = ~workDat()[[input$Y]], 
+               color = ~workDat()$current_smoker, 
+               hovertemplate = paste('<b>',input$Y,'</b>: %{y}',
+                                     '<br><b>',input$X,'</b>:  %{x}',
+                                     '<br>',workDat()$sex,
+                                     '<br>',workDat()$age),
+               alpha = 0.9,
+               size = ~workDat()[[input$Y]],
+               type = "scatter",
+               mode = "markers")
+  
+  # Add red line if input$Y is "systolic_bp" to provide indicator of who has hypertension
+  if ("systolic_bp" %in% input$Y) {
+    p <- p %>%
+      add_segments(x = 0, 
+                   xend = max(workDat()[[input$X]]) + 20,
+                   y = 140, 
+                   yend = 140,
+                   line = list(dash = "dash", color = "red", alpha = 0.5),
+                   inherit = FALSE, showlegend = FALSE) %>%
+      
+          add_annotations(
+      text = "Line at Systolic BP = 140 - points at or above have Hypertension",
+      x = 0.5,  
+      y = -0.1,  
+      showarrow = FALSE,  
+      font = list(color = "red", size = 10),  
+      xref = "paper",  
+      yref = "paper"   
+    )
+  }
+  
+  p <- p %>%
+    layout(title = paste(input$X, "vs", input$Y), 
+           plot_bgcolor = "#e5ecf6",
+           margin = list(l = 20, r = 20, b = 80, t = 50),
+           xaxis = list(title = paste(input$X)), 
+           yaxis = list(title = paste(input$Y)), 
+           orientation = "h",
+           xanchor = "center",
+           x = 0.5)
+           
+
+  
+  return(p)
+})
+
+```
+
+### **Distributions - Smoking Status**
+
+```{r}
+# Define a reactive expression to access current_smoker
+smoker_data <- reactive({
+  workDat()[workDat()$current_smoker == "yes", input$Y]
+})
+
+nonsmoker_data <- reactive({
+  workDat()[workDat()$current_smoker == "no", input$Y]
+})
+
+# Calculate density for current smokers and non-smokers
+density_smoker <- reactive({
+  density(smoker_data())
+})
+
+density_nonsmoker <- reactive({
+  density(nonsmoker_data())
+})
+
+# Plot density curves for current smokers and non-smokers
+smokeplot <- renderPlotly({
+  plot_ly() %>%
+    add_trace(x = density_smoker()$x, y = density_smoker()$y, type = "scatter", mode = "lines", fill = "tozeroy", name = "Smoker") %>%
+    add_trace(x = density_nonsmoker()$x, y = density_nonsmoker()$y, type = "scatter", mode = "lines", fill = "tozeroy", name = "Non-Smoker") %>%
+    layout(title = paste("Distribution of", input$Y, "by Current Smoker"),
+           xaxis = list(title = input$Y),
+           yaxis = list(title = "Density")
+          )
+})
+
+return(smokeplot) 
+
+```
+
+### **Distributions - Sex**
+
+
+```{r}
+# Repeat previous tab for sex
+female_data <- reactive({
+  workDat()[workDat()$sex == "female", input$Y]
+})
+
+male_data <- reactive({
+  workDat()[workDat()$sex == "male", input$Y]
+})
+
+# Calculate density 
+density_female <- reactive({
+  density(female_data())
+})
+
+density_male <- reactive({
+  density(male_data())
+})
+
+# Plot density curves 
+sexplot <- renderPlotly({
+  plot_ly()%>%
+    add_trace(x = density_female()$x, y = density_female()$y, type = "scatter", mode = "lines", fill = "tozeroy", name = "Female") %>%
+    add_trace(x = density_male()$x, y = density_male()$y, type = "scatter", mode = "lines", fill = "tozeroy", name = "Male") %>%
+    layout(title = paste("Distribution of", input$Y, "by Sex"),
+           xaxis = list(title = input$Y),
+           yaxis = list(title = "Density")
+           )
+})
+return(sexplot)
+```
+
+
+### **Regression** 
+
+
+```{r}
+renderPlot({
+  regdata = workDat()
+  if (input$current_smoker == "all"){
+    m0 = lm(df[[input$Y]]~df[[input$X]])
+    plot(df[[input$X]], df[[input$Y]],
+      main = "Linear Regression for Input Variables",
+      type = "p",
+      pch = 19,
+      col = "blue",
+      xlab = input$X,
+      ylab = input$Y
+      )
+    abline(m0, lwd = 2, col = "red")
+  } else {
+    m1 = lm(workDat()[[input$Y]]~workDat()[[input$X]])
+    plot(workDat()[[input$X]], workDat()[[input$Y]],
+      main = "Linear Regression for Input Variables",
+      type = "p",
+      pch = 19,
+      col = "blue",
+      xlab = input$X,
+      ylab = input$Y
+      )
+    abline(m1, lwd = 2, col = "red")    
+  }
+})
+```
+
+
+### **Regression Coefficients**
+
+```{r}
+tablee <- renderTable({
+    br()
+    br()
+    dataset = workDat()
+    m0 = lm(dataset[,input$Y] ~ dataset[,input$X])
+    regcoef = data.frame(coef(summary(m0)))
+    regcoef$Pvalue = regcoef[,names(regcoef)[4]]
+    regcoef$Variable = c("Intercept", input$X)
+    regcoef[,c(6, 1:3, 5)]
+    
+})
+
+    tablee
+
+```
+
+
+
+Column {data-width=350}
+-------------------------------------------------------------------
+
+
+### **Boxplots of Inputted Y by Smoking Status**
+
+
+```{r fig.align='center', fig.width=4, fig.height=3}
+renderPlot({
+ ggplot(data=workDat(), aes(x=workDat()$current_smoker, y=workDat()[[input$Y]])) +
+        geom_boxplot(aes(fill=workDat()$current_smoker)) +  
+        ylab(input$Y) + 
+        xlab("Smoking Status") + 
+        labs(fill = "Smoking Status") +
+        stat_summary(fun=mean, geom="point", shape=5, size=4)  
+})
+```
+
+
+<br>
+
+### **Residual Plots of Input Model**
+
+```{r fig.align='center', fig.width=4, fig.height=3}
+renderPlot({
+  regdata = workDat()
+  if (input$current_smoker == "all"){
+    LM = lm(df[[input$Y]]~df[[input$X]])
+  } else {
+    LM = lm(workDat()[[input$Y]]~workDat()[[input$X]])
+  }
+  
+  
+  par(mfrow = c(1,2))
+par(mfrow = c(1,2))
+plot(fitted(LM), resid(LM), main="Residual Plot", xlab="Predicted Value", ylab="Residuals")
+abline(0,0)
+qqnorm(resid(LM))
+qqline(resid(LM),probs=c(0.25,0.75))
+
+})
+
+```
+
+
+
+
+<br>
